@@ -145,10 +145,14 @@ class NaverHistoricalChartDto {
   });
 
   factory NaverHistoricalChartDto.fromJson(Map<String, dynamic> json) {
-    // TODO(assignment): Parse the chart wrapper and convert each priceInfos
     // entry with NaverHistoricalPriceDto.fromJson.
-    throw UnimplementedError(
-      'TODO(assignment): implement NaverHistoricalChartDto.fromJson',
+    return NaverHistoricalChartDto(
+      symbol: _readString(json['code']),
+      periodType: _readString(json['periodType']),
+      priceInfos: (json['priceInfos'] as List<dynamic>)
+          .map((item) =>
+              NaverHistoricalPriceDto.fromJson(item as Map<String, dynamic>))
+          .toList(),
     );
   }
 
