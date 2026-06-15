@@ -196,12 +196,12 @@ class NaverDomesticStockClient implements NaverStockDataClient {
           .toList();
 
       //    TD order
-    //   - localDate (yyyyMMdd)
-    //   - closePrice
-    //   - openPrice
-    //   - highPrice
-    //   - lowPrice
-    //   - accumulatedTradingVolume
+      //   - localDate (yyyyMMdd)
+      //   - closePrice
+      //   - openPrice
+      //   - highPrice
+      //   - lowPrice
+      //   - accumulatedTradingVolume
 
       final dateStr = nums[0].replaceAll('.', '');
 
