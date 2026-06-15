@@ -119,9 +119,13 @@ class NaverHistoricalPriceDto {
   });
 
   factory NaverHistoricalPriceDto.fromJson(Map<String, dynamic> json) {
-    // TODO(assignment): Parse one historical OHLCV row.
-    throw UnimplementedError(
-      'TODO(assignment): implement NaverHistoricalPriceDto.fromJson',
+  return NaverHistoricalPriceDto(
+      localDate: _readLocalDate(json['localDate']),
+      closePrice: _readDouble(json['closePrice']),
+      openPrice: _readDouble(json['openPrice']),
+      highPrice: _readDouble(json['highPrice']),
+      lowPrice: _readDouble(json['lowPrice']),
+      accumulatedTradingVolume: _readInt(json['accumulatedTradingVolume']),
     );
   }
 
