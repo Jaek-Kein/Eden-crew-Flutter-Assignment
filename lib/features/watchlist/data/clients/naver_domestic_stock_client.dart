@@ -88,23 +88,28 @@ class NaverDomesticStockClient implements NaverStockDataClient {
 
   @override
   Future<List<NaverAutocompleteItemDto>> searchStocks(String query) async {
-    // TODO(assignment): Implement the Naver autocomplete request.
-    //
-    // Goal:
-    // - Call https://ac.stock.naver.com/ac with Dio.
-    // - Send q=<query> and target=stock,ipo,index,marketindicator.
-    // - Use _defaultHeaders and ResponseType.plain because the response body
-    //   may arrive as a String instead of a decoded JSON map.
-    // - Decode the response with _decodeJsonObjectBody.
-    // - Read the "items" array and map each entry with
-    //   NaverAutocompleteItemDto.fromJson.
-    //
-    // Related tests:
-    // - test/features/watchlist/data/naver_stock_dtos_test.dart
-    // - test/features/watchlist/data/naver_watchlist_repository_test.dart
-    throw UnimplementedError(
-      'TODO(assignment): implement NaverDomesticStockClient.searchStocks',
+    final response = await _dio.get(
+      'https://ac.stock.naver.com/ac',
+      queryParameters: {
+        'q': query,
+        'target': 'stock,ipo,index,marketindicator',
+      },
+      options: Options(
+        headers: _defaultHeaders,
+        responseType: ResponseType.plain,
+      ),
     );
+
+    final json = _decodeJsonObjectBody(response, 'searchStocks');
+    final items = json['items'] as List<dynamic>;
+
+    return items
+        .map(
+          (item) => NaverAutocompleteItemDto.fromJson(
+            _asStringKeyedMap(item, 'Naver autocomplete item'),
+          ),
+        )
+        .toList();
   }
 
   @override
