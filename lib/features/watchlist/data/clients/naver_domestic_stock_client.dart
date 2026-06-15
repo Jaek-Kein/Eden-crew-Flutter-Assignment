@@ -116,23 +116,35 @@ class NaverDomesticStockClient implements NaverStockDataClient {
   Future<Map<String, NaverRealtimeQuoteDto>> fetchRealtimeQuotes(
     Iterable<String> symbols,
   ) async {
-    // TODO(assignment): Implement the Naver realtime quote request.
-    //
-    // Goal:
-    // - Deduplicate the incoming symbols.
-    // - Return an empty map when there is nothing to request.
-    // - Build query=SERVICE_ITEM:005930,000660 style payload.
-    // - Call https://polling.finance.naver.com/api/realtime.
-    // - Decode the JSON body, then traverse result -> areas -> datas.
-    // - Convert each realtime row with NaverRealtimeQuoteDto.fromJson.
-    // - Return a map keyed by the six-digit domestic symbol.
-    //
-    // Note:
-    // - The response body may be plain text JSON, so use ResponseType.plain.
-    // - Some tests use a fake client, but the real app depends on this method.
-    throw UnimplementedError(
-      'TODO(assignment): implement NaverDomesticStockClient.fetchRealtimeQuotes',
+    final deduped = symbols.toSet().toList();
+    if (deduped.isEmpty) {
+      return {};
+    }
+
+    final query = 'SERVICE_ITEM:${deduped.join(',')}';
+
+    final response = await _dio.get(
+      'https:///polling.finance.naver.com/api/realtime',
+      queryParameters: {'query': query},
+      options: Options(
+        headers: _defaultHeaders,
+        responseType: ResponseType.plain,
+      ),
     );
+
+    final json = _decodeJsonObjectBody(response.data, 'fetchRealtimeQuotes');
+    final areas = (json['result']?['areas'] as List<dynamic>?) ?? [];
+
+    final result = <String, NaverRealtimeQuoteDto>{};
+    for (final area in areas) {
+      final datas = (area['datas'] as List<dynamic>?) ?? [];
+      for (final row in datas) {
+        final dto = NaverRealtimeQuoteDto.fromJson(row as Map<String, dynamic>);
+        result[dto.symbol] = dto;
+      }
+    }
+
+    return result;
   }
 
   @override
