@@ -149,21 +149,18 @@ class NaverDomesticStockClient implements NaverStockDataClient {
 
   @override
   Future<NaverChartMetadataDto> fetchChartMetadata(String symbol) async {
-    // TODO(assignment): Implement the chart metadata request.
-    //
-    // Goal:
-    // - Call
-    //   https://stock.naver.com/api/securityFe/api/fchart/domestic/stock/{symbol}
-    // - Decode the JSON object with _decodeJsonObjectBody.
-    // - Convert the payload with NaverChartMetadataDto.fromJson.
-    //
-    // Required fields for the DTO:
-    // - symbolCode
-    // - stockName
-    // - stockExchangeNameKor
-    throw UnimplementedError(
-      'TODO(assignment): implement NaverDomesticStockClient.fetchChartMetadata',
+    final response = await _dio.get(
+      'https://stock.naver.com/api/securityFe/api/fchart/domestic/stock/$symbol',
+      options: Options(
+        headers: _defaultHeaders,
+        responseType: ResponseType.plain,
+      ),
     );
+
+    final json = _decodeJsonObjectBody(response.data, 'fetchChartMetadata');
+    final dto = NaverChartMetadataDto.fromJson(json);
+
+    return dto;
   }
 
   @override
