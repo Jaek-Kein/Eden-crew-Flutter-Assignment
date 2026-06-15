@@ -168,28 +168,66 @@ class NaverDomesticStockClient implements NaverStockDataClient {
     required String symbol,
     required int page,
   }) async {
-    // TODO(assignment): Implement parsing for the legacy daily history page.
-    //
-    // Goal:
-    // - Validate that page >= 1.
-    // - Request https://finance.naver.com/item/sise_day.naver
-    //   with code=<symbol> and page=<page>.
-    // - Use ResponseType.bytes and decode the HTML with latin1.
-    // - Parse one page of historical rows from the HTML table.
-    // - For each row, extract:
+    if (page < 1) throw ArgumentError('Page must be bigger then 1');
+    final response = await _dio.get(
+      'https://finance.naver.com/item/sise_day.naver',
+      queryParameters: {'code': symbol, 'page': page},
+      options: Options(
+        headers: _defaultHeaders,
+        responseType: ResponseType.bytes,
+      ),
+    );
+
+    final html = latin1.decode(response.data as List<int>);
+
+    final rowRegex = RegExp(
+      r'<tr[^>]*>\s*<td[^>]*>\s*<span[^>]*>(\d{4}\.\d{2}\.\d{2})</span>.*?</tr>',
+      dotAll: true,
+    );
+    final numRegex = RegExp(r'[\d,]+');
+
+    final priceInfos = <NaverHistoricalPriceDto>[];
+
+    for (final row in rowRegex.allMatches(html)) {
+      final rowHtml = row.group(0)!;
+      final nums = numRegex
+          .allMatches(rowHtml)
+          .map((m) => m.group(0)!)
+          .toList();
+
+      //    TD order
     //   - localDate (yyyyMMdd)
     //   - closePrice
     //   - openPrice
     //   - highPrice
     //   - lowPrice
     //   - accumulatedTradingVolume
-    // - Also extract lastPage from the pagination area.
-    //
-    // Hint:
-    // - The rendered table order is close, change, open, high, low, volume.
-    // - You can keep using NaverHistoricalPriceDto.fromJson to build rows.
-    throw UnimplementedError(
-      'TODO(assignment): implement NaverDomesticStockClient.fetchDailyHistoryPage',
+
+      final dateStr = nums[0].replaceAll('.', '');
+
+      priceInfos.add(
+        NaverHistoricalPriceDto.fromJson({
+          'localDate': dateStr,
+          'closePrice': nums[1],
+          'openPrice': nums[3],
+          'highPrice': nums[4],
+          'lowPrice': nums[5],
+          'accumulatedTradingVolume': nums[6],
+        }),
+      );
+    }
+
+    final lastPageRegex = RegExp(r'page=(\d+)[^"]*"[^>]*>\s*맨뒤');
+    final lastPageMatch = lastPageRegex.firstMatch(html);
+    final lastPage = lastPageMatch != null
+        ? int.parse(lastPageMatch.group(1)!)
+        : page;
+
+    return NaverDailyHistoryPageDto(
+      symbol: symbol,
+      page: page,
+      lastPage: lastPage,
+      priceInfos: priceInfos,
     );
   }
 }
