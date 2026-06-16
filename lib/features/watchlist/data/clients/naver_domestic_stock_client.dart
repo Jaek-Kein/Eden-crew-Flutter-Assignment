@@ -217,11 +217,9 @@ class NaverDomesticStockClient implements NaverStockDataClient {
       );
     }
 
-    final lastPageRegex = RegExp(r'page=(\d+)[^"]*"[^>]*>\s*맨뒤');
-    final lastPageMatch = lastPageRegex.firstMatch(html);
-    final lastPage = lastPageMatch != null
-        ? int.parse(lastPageMatch.group(1)!)
-        : page;
+    final lastPageRegex = RegExp(r'page=(\d+)');
+    final lastPageMatch = lastPageRegex.allMatches(html);
+    final lastPage = lastPageMatch.map((m) => int.tryParse(m.group(1)!) ?? 0).fold(page, (max, n) => n > max ? n : max);
 
     return NaverDailyHistoryPageDto(
       symbol: symbol,
