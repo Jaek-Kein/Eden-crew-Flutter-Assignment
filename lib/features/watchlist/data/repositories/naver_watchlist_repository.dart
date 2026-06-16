@@ -225,20 +225,34 @@ class NaverWatchlistRepository implements WatchlistRepository {
 
   @override
   Future<List<StockSearchItem>> searchStocks({required String query}) async {
-    // TODO(assignment): Search domestic stocks and convert them into
-    // StockSearchItem values.
-    //
-    // Requirements:
-    // - Trim the query and return [] for empty input.
-    // - Use _client.searchStocks(trimmedQuery).
-    // - Keep only domestic six-digit stock results.
-    // - Deduplicate duplicate symbols.
-    // - Convert every symbol into canonical id: domestic:{symbol}
-    // - Set isFavorite by comparing against loadFavoriteIds().
-    // - Fill logoUrl via _logoUrlResolver.
-    throw UnimplementedError(
-      'TODO(assignment): implement NaverWatchlistRepository.searchStocks',
-    );
+    final trimmedQuery = query.trim();
+    if (trimmedQuery.isEmpty) return [];
+
+    final dtos = await _client.searchStocks(trimmedQuery);
+
+    final seen = <String>{};
+    final items = <StockSearchItem>[];
+    final favoriteIds = await loadFavoriteIds();
+
+    for (final dto in dtos) {
+      if (!dto.isDomesticStock) continue;
+      if (!seen.add(dto.code)) continue;
+
+      items.add(
+        StockSearchItem(
+          id: canonicalDomesticFavoriteId(dto.code),
+          market: MarketType.domestic,
+          marketLabel: dto.typeName,
+          symbol: dto.code,
+          name: dto.name,
+          isFavorite: favoriteIds.contains(
+            canonicalDomesticFavoriteId(dto.code),
+          ),
+          logoUrl: _logoUrlResolver.resolveDomesticStockLogoUrl(dto.code),
+        ),
+      );
+    }
+    return items;
   }
 
   @override
