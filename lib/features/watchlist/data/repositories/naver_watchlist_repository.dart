@@ -40,22 +40,55 @@ class NaverWatchlistRepository implements WatchlistRepository {
 
   @override
   Future<WatchlistSnapshot> fetchWatchlist({DateTime? asOf}) async {
-    // TODO(assignment): Build the watchlist snapshot from Naver data.
-    //
-    // Suggested flow:
-    // 1. Load canonical favorite ids via loadFavoriteIds().
-    // 2. Convert each id into a six-digit domestic symbol.
-    // 3. Load metadata and realtime quotes for those symbols.
-    // 4. When asOf is null, use the latest historical row for each symbol.
-    // 5. When asOf is provided, resolve the selected trading day and build a
-    //    one-day snapshot for that date.
-    // 6. Map every symbol into WatchlistItem.
-    //
-    // Related tests:
-    // - test/features/watchlist/data/naver_watchlist_repository_test.dart
-    throw UnimplementedError(
-      'TODO(assignment): implement NaverWatchlistRepository.fetchWatchlist',
-    );
+    final favoriteIds = await loadFavoriteIds();
+
+    final symbols = favoriteIds
+        .map(domesticSymbolFromFavoriteId)
+        .whereType<String>()
+        .toList();
+
+    if (symbols.isEmpty) {
+      return WatchlistSnapshot(
+        items: [],
+        asOf: normalizeAsOfDate(asOf ?? DateTime.now()),
+      );
+    }
+
+    final metadata = await _loadMetadataBatch(symbols);
+    final realtimeQuotes = await _loadRealtimeQuotes(symbols);
+
+    final availableDates = await fetchAvailableDates();
+    final resolvedAsOf = _resolveAsOf(availableDates, asOf);
+    final isLatest = asOf == null;
+    final latestDate = isLatest ? availableDates.firstOrNull : null;
+
+    final items = <WatchlistItem>[];
+    for (final symbol in symbols) {
+      final meta = metadata[symbol];
+      if (meta == null) continue;
+
+      final historicalEntry = isLatest
+          ? await _loadLatestHistoricalEntry(symbol)
+          : await _loadHistoricalEntryForDate(
+              symbol: symbol,
+              availableDates: availableDates,
+              asOf: resolvedAsOf,
+            );
+
+      if (historicalEntry == null) continue;
+
+      items.add(
+        _buildWatchlistItem(
+          symbol: symbol,
+          metadata: meta,
+          historicalEntry: historicalEntry,
+          realtimeQuote: realtimeQuotes[symbol],
+          latestDate: latestDate,
+        ),
+      );
+    }
+
+    return WatchlistSnapshot(asOf: resolvedAsOf, items: items);
   }
 
   @override
