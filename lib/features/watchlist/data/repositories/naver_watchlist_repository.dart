@@ -135,17 +135,91 @@ class NaverWatchlistRepository implements WatchlistRepository {
     required MarketType market,
     DateTime? asOf,
   }) async {
-    // TODO(assignment): Build the detail panel from a 30-trading-day window.
-    //
-    // Requirements:
-    // - Only domestic stocks are supported.
-    // - When asOf is null, show the latest available detail.
-    // - When asOf is set, resolve the requested trading day and collect the
-    //   previous 30 trading days (including the selected day).
-    // - Use realtime data only for the latest trading day.
-    // - Compute changeAmount, changeRate, volumeRatio, and candles.
-    throw UnimplementedError(
-      'TODO(assignment): implement NaverWatchlistRepository.fetchWatchlistDetail',
+    if (market != MarketType.domestic) {
+      throw ArgumentError('Only domestic market is supported');
+    }
+
+    final availableDates = await fetchAvailableDates();
+    final resolvedAsOf = _resolveAsOf(availableDates, asOf);
+    final isLatest = asOf == null;
+
+    final selectedIndex = _indexOfDate(availableDates, resolvedAsOf) ?? 0;
+
+    final windowDatesDescending = availableDates
+        .skip(selectedIndex)
+        .take(30)
+        .toList();
+
+    final pages = await Future.wait(
+      windowDatesDescending
+          .map((d) => _indexOfDate(availableDates, d) ?? 0)
+          .map(_pageNumberForIndex)
+          .toSet()
+          .map((page) => _loadDailyHistoryPage(symbol, page)),
+    );
+
+    final rowsByDate = <String, NaverHistoricalPriceDto>{
+      for (final page in pages)
+        for (final row in page.priceInfos) _dateKey(row.localDate): row,
+    };
+
+    final historicalEntry = await _loadHistoricalEntryForDate(
+      symbol: symbol,
+      availableDates: availableDates,
+      asOf: resolvedAsOf,
+    );
+    if (historicalEntry == null) throw StateError('No data for $resolvedAsOf');
+
+    final realtimeQuotes = isLatest
+        ? await _loadRealtimeQuotes([symbol])
+        : <String, NaverRealtimeQuoteDto>{};
+    final realtimeQuote = realtimeQuotes[symbol];
+
+    final currentPrice = isLatest && realtimeQuote != null
+        ? realtimeQuote.changeRate
+        : historicalEntry.row.closePrice;
+
+    final changeRate = isLatest && realtimeQuote != null
+        ? realtimeQuote.changeRate
+        : _percentChange(
+            currentPrice - historicalEntry.previousClose,
+            historicalEntry.previousClose,
+          );
+
+    return WatchlistDetail(
+      itemId: canonicalDomesticFavoriteId(symbol),
+      symbol: symbol,
+      market: market,
+      currency: 'KRW',
+      currentPrice: currentPrice,
+      changeAmount: currentPrice - historicalEntry.previousClose,
+      changeRate: changeRate,
+      tradeVolume: isLatest && realtimeQuote != null
+          ? realtimeQuote.accumulatedTradingVolume
+          : historicalEntry.row.accumulatedTradingVolume,
+      volumeRatio: _volumeRatio(
+        windowDatesDescending: windowDatesDescending,
+        rowsByDate: rowsByDate,
+      ),
+      openPrice: historicalEntry.row.openPrice,
+      openChangeRate: _percentChange(
+        historicalEntry.row.openPrice - historicalEntry.previousClose,
+        historicalEntry.previousClose,
+      ),
+      highPrice: historicalEntry.row.highPrice,
+      highChangeRate: _percentChange(
+        historicalEntry.row.highPrice - historicalEntry.previousClose,
+        historicalEntry.previousClose,
+      ),
+      lowPrice: historicalEntry.row.lowPrice,
+      lowChangeRate: _percentChange(
+        historicalEntry.row.lowPrice - historicalEntry.previousClose,
+        historicalEntry.previousClose,
+      ),
+      candles: _candles(
+        windowDatesDescending: windowDatesDescending,
+        rowsByDate: rowsByDate,
+      ),
     );
   }
 
