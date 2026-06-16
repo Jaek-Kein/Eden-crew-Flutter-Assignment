@@ -93,17 +93,40 @@ class NaverWatchlistRepository implements WatchlistRepository {
 
   @override
   Future<List<DateTime>> fetchAvailableDates() async {
-    // TODO(assignment): Lazily load and cache the trading-day list.
-    //
-    // Suggested flow:
-    // - Reuse _availableDatesCache when present.
-    // - Pick the first valid favorite symbol as the reference symbol.
-    // - Request page 1 first to discover lastPage.
-    // - Fetch the remaining pages in small batches.
-    // - Flatten all localDate values into one descending list.
-    throw UnimplementedError(
-      'TODO(assignment): implement NaverWatchlistRepository.fetchAvailableDates',
-    );
+    if (_availableDatesCache != null) return _availableDatesCache!;
+
+    final favoriteIds = await loadFavoriteIds();
+    final symbol = favoriteIds
+        .map(domesticSymbolFromFavoriteId)
+        .whereType<String>()
+        .firstOrNull;
+
+    if (symbol == null) return [];
+
+    final firstPage = await _loadDailyHistoryPage(symbol, 1);
+    final lastPage = firstPage.lastPage;
+
+    final allPages = [firstPage];
+    const batchSize = 5;
+    for (var page = 2; page <= lastPage; page += batchSize) {
+      final batch = await Future.wait([
+        for (var p = page; p < page + batchSize && p <= lastPage; p++)
+          _loadDailyHistoryPage(symbol, p),
+      ]);
+      allPages.addAll(batch);
+    }
+
+    final dates =
+        allPages
+            .expand((page) => page.priceInfos)
+            .map((row) => normalizeAsOfDate(row.localDate))
+            .toSet()
+            .toList()
+          ..sort((a, b) => b.compareTo(a));
+
+    _availableDatesCache = dates;
+
+    return dates;
   }
 
   @override
