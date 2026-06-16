@@ -5,6 +5,7 @@ import '../../../../theme/app_assets.dart';
 import '../../../../theme/app_theme.dart';
 import '../../domain/services/search_text_utils.dart';
 import '../layout/search_layout_spec.dart';
+import 'search_action_bar.dart';
 
 class SearchResultRow extends StatelessWidget {
   const SearchResultRow({
@@ -55,11 +56,9 @@ class SearchResultRow extends StatelessWidget {
                       child: AppAssetSlotIcon(
                         key: Key('search-heart-icon-${item.id}'),
                         assetPath: AppAssets.favoriteHeart,
-                        // TODO(assignment): Match the exact Figma slot size.
-                        // This starter keeps the slot slightly oversized so
-                        // the related widget test can guide the fix.
-                        slotWidth: 24,
-                        slotHeight: 24,
+                        // Figma: 20×20 slot containing 16×13 heart icon
+                        slotWidth: 20,
+                        slotHeight: 20,
                         assetWidth: AppAssetSizes.favoriteHeart.width,
                         assetHeight: AppAssetSizes.favoriteHeart.height,
                         color: item.isFavorite
@@ -72,30 +71,15 @@ class SearchResultRow extends StatelessWidget {
               ),
             ),
             if (isSelected) ...[
-              const SizedBox(height: 0),
+              SizedBox(height: SearchLayoutSpec.expandedActionTopGap),
               Padding(
                 padding: EdgeInsets.symmetric(
                   horizontal: layout.horizontalPadding,
                 ),
-                child: Container(
+                child: SearchActionBar(
                   key: Key('search-actions-${item.id}'),
-                  height: SearchLayoutSpec.expandedActionHeight,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.bg.bg_2_212121,
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: AppColors.border.border_5_3b3e53),
-                  ),
-                  child: InkWell(
-                    onTap: () => onActionTap('TODO'),
-                    child: Center(
-                      child: Text(
-                        'TODO(assignment): SearchActionBar를 Figma 기준으로 재구성하세요.',
-                        style: AppTypography.searchMeta,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
+                  layout: layout,
+                  onActionTap: onActionTap,
                 ),
               ),
             ],
@@ -114,32 +98,44 @@ class _SearchTextColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasQuery = query.trim().isNotEmpty;
-    // TODO(assignment): Rebuild this text block to match Figma.
-    // Expected shape:
-    // - title + subtitle as two RichText widgets
-    // - query highlight using splitSearchTextParts()
-    // - typography and ellipsis should match the design
+    // 검색어와 일치하는 부분을 point_b980ff 색으로 강조. 쿼리가 없으면 기본 스타일만 적용.
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          item.name,
-          style: hasQuery
-              ? AppTypography.searchName.copyWith(
-                  decoration: TextDecoration.none,
-                )
-              : AppTypography.searchName,
+        RichText(
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+          text: TextSpan(
+            children: splitSearchTextParts(item.name, query).map((part) {
+              return TextSpan(
+                text: part.text,
+                style: part.isHighlighted
+                    ? AppTypography.searchName.copyWith(
+                        color: AppColors.mainAndAccent.point_b980ff,
+                      )
+                    : AppTypography.searchName,
+              );
+            }).toList(),
+          ),
         ),
         const SizedBox(height: 4),
-        Text(
-          buildSearchSubtitle(item),
-          style: AppTypography.searchMeta,
+        RichText(
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+          text: TextSpan(
+            children:
+                splitSearchTextParts(buildSearchSubtitle(item), query).map((part) {
+              return TextSpan(
+                text: part.text,
+                style: part.isHighlighted
+                    ? AppTypography.searchMeta.copyWith(
+                        color: AppColors.mainAndAccent.point_b980ff,
+                      )
+                    : AppTypography.searchMeta,
+              );
+            }).toList(),
+          ),
         ),
       ],
     );
